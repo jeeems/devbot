@@ -5,6 +5,8 @@ import asyncio
 import logging
 from dotenv import load_dotenv
 import sys
+from threading import Thread
+from flask import Flask
 
 # Set up logging with UTF-8 encoding for all handlers
 logging.basicConfig(
@@ -23,6 +25,25 @@ if sys.platform == "win32":
     import io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
+# Create a simple Flask app to keep Render happy
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "DevBot is running! 🤖"
+
+@app.route('/health')
+def health():
+    return "OK"
+
+@app.route('/status')
+def status():
+    return {"status": "online", "bot": "DevBot"}
+
+def run_flask():
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
 
 class DevBot(commands.Bot):
     def __init__(self):
@@ -106,6 +127,12 @@ async def main():
     if not DISCORD_TOKEN:
         logger.error("❌ Error: DISCORD_TOKEN environment variable not set")
         return
+
+    # Start Flask in a separate thread (for Render.com)
+    flask_thread = Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+    logger.info("🌐 Flask server started for Render.com")
 
     # Create bot instance
     bot = DevBot()
